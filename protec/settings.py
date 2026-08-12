@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     'protec',
     'rest_framework',
+    'presales',
     
 ]
 
@@ -77,9 +78,13 @@ WSGI_APPLICATION = 'protec.wsgi.application'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "protec",
+        "USER": "root",
+        "PASSWORD": "adel@pt26",
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
     }
 }
 
@@ -129,3 +134,9 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+AUTH_USER_MODEL = "presales.Person"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
