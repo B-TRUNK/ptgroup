@@ -62,10 +62,6 @@ class PersonManager(BaseUserManager):
 
 class Person(AbstractBaseUser, PermissionsMixin):
 
-    # ========================================================
-    # ROLES
-    # ========================================================
-
     class Role(models.TextChoices):
 
         ADMIN = "ADMIN", "Admin"
@@ -75,10 +71,6 @@ class Person(AbstractBaseUser, PermissionsMixin):
         VIEWER = "VIEWER", "Viewer"
 
         DEVELOPER = "DEVELOPER", "Developer"
-
-    # ========================================================
-    # BASIC INFORMATION
-    # ========================================================
 
     email = models.EmailField(
         unique=True,
@@ -95,19 +87,11 @@ class Person(AbstractBaseUser, PermissionsMixin):
         blank=True
     )
 
-    # ========================================================
-    # ROLE
-    # ========================================================
-
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.MEMBER
     )
-
-    # ========================================================
-    # DJANGO AUTHENTICATION
-    # ========================================================
 
     is_active = models.BooleanField(
         default=True
@@ -134,34 +118,11 @@ class Person(AbstractBaseUser, PermissionsMixin):
             f"{self.last_name}"
         ).strip()
 
-        return (
-            full_name
-            if full_name
-            else self.email
-        )
+        return full_name if full_name else self.email
 
 
 # ============================================================
 # LIGHT CURRENT SYSTEM
-# ============================================================
-#
-# MASTER SYSTEM CATALOG
-#
-# Only Admin / Developer should manage these records.
-#
-# Example:
-#
-# CCTV
-# Access Control
-# Fire Alarm
-# Structured Cabling
-# IP Telephony
-# Public Address
-# BMS
-# AV
-#
-# Each system exists only once.
-#
 # ============================================================
 
 class LightCurrentSystem(models.Model):
@@ -176,7 +137,6 @@ class LightCurrentSystem(models.Model):
     )
 
     def __str__(self):
-
         return self.name
 
 
@@ -185,10 +145,6 @@ class LightCurrentSystem(models.Model):
 # ============================================================
 
 class Project(models.Model):
-
-    # ========================================================
-    # STATUS
-    # ========================================================
 
     class Status(models.TextChoices):
 
@@ -202,33 +158,15 @@ class Project(models.Model):
             "In Progress"
         )
 
-    # ========================================================
-    # PROJECT NAME
-    # ========================================================
-
     name = models.CharField(
         max_length=255
     )
-
-    # ========================================================
-    # STATUS
-    # ========================================================
 
     status = models.CharField(
         max_length=30,
         choices=Status.choices,
         default=Status.TO_BE_ASSIGNED
     )
-
-    # ========================================================
-    # PRESALES ENGINEER
-    # ========================================================
-    #
-    # NULL = not assigned yet.
-    #
-    # Admin / Developer can assign.
-    #
-    # ========================================================
 
     presales_engineer = models.ForeignKey(
         Person,
@@ -239,8 +177,15 @@ class Project(models.Model):
     )
 
     # ========================================================
-    # TIMESTAMPS
+    # COMMENTS
+    #
+    # Comments are now a simple field INSIDE the project.
     # ========================================================
+
+    comments = models.TextField(
+        blank=True,
+        default=""
+    )
 
     created_at = models.DateTimeField(
         auto_now_add=True
@@ -251,12 +196,10 @@ class Project(models.Model):
     )
 
     def __str__(self):
-
         return self.name
 
     @property
     def is_assigned(self):
-
         return self.presales_engineer is not None
 
 
@@ -264,24 +207,23 @@ class Project(models.Model):
 # PROJECT SYSTEM
 # ============================================================
 #
-# Connects:
+# Relationship:
 #
-#       Project
-#          |
-#          +---- LightCurrentSystem
+# Project
+#    |
+#    +---- ProjectSystem ---- LightCurrentSystem
 #
-# A project can contain any number of systems.
+# A project can have unlimited systems.
 #
 # Example:
 #
 # Hospital XYZ
-#   ├── CCTV
-#   ├── Access Control
-#   ├── Fire Alarm
-#   └── Structured Cabling
+#    CCTV
+#    Access Control
+#    Fire Alarm
+#    Structured Cabling
 #
-# The same system cannot be added twice
-# to the same project.
+# Same system cannot be added twice to the same project.
 #
 # ============================================================
 
@@ -320,53 +262,4 @@ class ProjectSystem(models.Model):
         return (
             f"{self.project.name} - "
             f"{self.system.name}"
-        )
-
-
-# ============================================================
-# PROJECT COMMENT
-# ============================================================
-#
-# Each comment belongs to:
-#
-#   Project
-#   Author
-#
-# Admin / Developer:
-#       manage everything
-#
-# Normal engineer:
-#       manage their own comments
-#
-# ============================================================
-
-class ProjectComment(models.Model):
-
-    project = models.ForeignKey(
-        Project,
-        on_delete=models.CASCADE,
-        related_name="comments"
-    )
-
-    author = models.ForeignKey(
-        Person,
-        on_delete=models.PROTECT,
-        related_name="project_comments"
-    )
-
-    comment = models.TextField()
-
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True
-    )
-
-    def __str__(self):
-
-        return (
-            f"{self.project.name} - "
-            f"{self.author.email}"
         )
