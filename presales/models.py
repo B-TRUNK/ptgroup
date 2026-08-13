@@ -65,11 +65,8 @@ class Person(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
 
         ADMIN = "ADMIN", "Admin"
-
         MEMBER = "MEMBER", "Member"
-
         VIEWER = "VIEWER", "Viewer"
-
         DEVELOPER = "DEVELOPER", "Developer"
 
     email = models.EmailField(
@@ -123,6 +120,10 @@ class Person(AbstractBaseUser, PermissionsMixin):
 
 # ============================================================
 # LIGHT CURRENT SYSTEM
+#
+# MASTER CATALOG
+#
+# Only ADMIN / DEVELOPER can create or modify systems.
 # ============================================================
 
 class LightCurrentSystem(models.Model):
@@ -138,6 +139,167 @@ class LightCurrentSystem(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# ============================================================
+# VENDOR
+#
+# A vendor belongs to ONE Light Current System.
+#
+# Example:
+#
+# FAS
+#   ├── Simplex
+#   ├── Honeywell
+#   └── Eaton
+# ============================================================
+
+class Vendor(models.Model):
+
+    system = models.ForeignKey(
+        LightCurrentSystem,
+        on_delete=models.PROTECT,
+        related_name="vendors"
+    )
+
+    name = models.CharField(
+        max_length=200
+    )
+
+    notes = models.TextField(
+        blank=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+
+        ordering = [
+            "system__name",
+            "name",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "system",
+                    "name",
+                ],
+                name="unique_vendor_per_system"
+            )
+        ]
+
+    def __str__(self):
+
+        return (
+            f"{self.system.name} - "
+            f"{self.name}"
+        )
+
+
+# ============================================================
+# DISTRIBUTOR
+#
+# A distributor belongs to ONE vendor.
+#
+# Example:
+#
+# FAS
+#   └── Simplex
+#        ├── Distributor A
+#        └── Distributor B
+# ============================================================
+
+class Distributor(models.Model):
+
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name="distributors"
+    )
+
+    name = models.CharField(
+        max_length=200
+    )
+
+    # --------------------------------------------------------
+    # CONTACT 1
+    # --------------------------------------------------------
+
+    contact_1_name = models.CharField(
+        max_length=200,
+        blank=True
+    )
+
+    contact_1_mobile = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    contact_1_email = models.EmailField(
+        blank=True
+    )
+
+    # --------------------------------------------------------
+    # CONTACT 2
+    # --------------------------------------------------------
+
+    contact_2_name = models.CharField(
+        max_length=200,
+        blank=True
+    )
+
+    contact_2_mobile = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    contact_2_email = models.EmailField(
+        blank=True
+    )
+
+    notes = models.TextField(
+        blank=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+
+        ordering = [
+            "vendor__system__name",
+            "vendor__name",
+            "name",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "vendor",
+                    "name",
+                ],
+                name="unique_distributor_per_vendor"
+            )
+        ]
+
+    def __str__(self):
+
+        return (
+            f"{self.vendor.name} - "
+            f"{self.name}"
+        )
 
 
 # ============================================================
@@ -176,15 +338,12 @@ class Project(models.Model):
         blank=True
     )
 
-    # ========================================================
-    # COMMENTS
-    #
-    # Comments are now a simple field INSIDE the project.
-    # ========================================================
+    # --------------------------------------------------------
+    # PROJECT COMMENTS
+    # --------------------------------------------------------
 
     comments = models.TextField(
-        blank=True,
-        default=""
+        blank=True
     )
 
     created_at = models.DateTimeField(
@@ -205,26 +364,10 @@ class Project(models.Model):
 
 # ============================================================
 # PROJECT SYSTEM
-# ============================================================
 #
-# Relationship:
+# Connects:
 #
-# Project
-#    |
-#    +---- ProjectSystem ---- LightCurrentSystem
-#
-# A project can have unlimited systems.
-#
-# Example:
-#
-# Hospital XYZ
-#    CCTV
-#    Access Control
-#    Fire Alarm
-#    Structured Cabling
-#
-# Same system cannot be added twice to the same project.
-#
+# Project <-> LightCurrentSystem
 # ============================================================
 
 class ProjectSystem(models.Model):
@@ -262,4 +405,111 @@ class ProjectSystem(models.Model):
         return (
             f"{self.project.name} - "
             f"{self.system.name}"
+        )
+
+
+# ============================================================
+# PROJECT VENDOR
+#
+# This represents a vendor actually selected for a system
+# inside a specific project.
+#
+# Example:
+#
+# Project: Hospital XYZ
+#
+# FAS
+#   ├── Simplex
+#   └── Honeywell
+#
+# These vendors come from the global Vendor catalog.
+# ============================================================
+
+class ProjectVendor(models.Model):
+
+    project_system = models.ForeignKey(
+        ProjectSystem,
+        on_delete=models.CASCADE,
+        related_name="project_vendors"
+    )
+
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.PROTECT,
+        related_name="project_vendor_selections"
+    )
+
+    class Meta:
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "project_system",
+                    "vendor",
+                ],
+                name="unique_vendor_per_project_system"
+            )
+        ]
+
+        ordering = [
+            "vendor__name"
+        ]
+
+    def __str__(self):
+
+        return (
+            f"{self.project_system.project.name} - "
+            f"{self.vendor.name}"
+        )
+
+
+# ============================================================
+# PROJECT DISTRIBUTOR
+#
+# Represents a distributor selected for a vendor in a project.
+#
+# Example:
+#
+# Project
+#   FAS
+#     Simplex
+#       Distributor A
+#       Distributor B
+# ============================================================
+
+class ProjectDistributor(models.Model):
+
+    project_vendor = models.ForeignKey(
+        ProjectVendor,
+        on_delete=models.CASCADE,
+        related_name="project_distributors"
+    )
+
+    distributor = models.ForeignKey(
+        Distributor,
+        on_delete=models.PROTECT,
+        related_name="project_distributor_selections"
+    )
+
+    class Meta:
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "project_vendor",
+                    "distributor",
+                ],
+                name="unique_distributor_per_project_vendor"
+            )
+        ]
+
+        ordering = [
+            "distributor__name"
+        ]
+
+    def __str__(self):
+
+        return (
+            f"{self.project_vendor.project_system.project.name} - "
+            f"{self.distributor.name}"
         )
