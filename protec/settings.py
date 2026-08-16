@@ -88,16 +88,33 @@ WSGI_APPLICATION = 'protec.wsgi.application'
 #     }
 # }
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'protec',
+#         'USER': 'postgres',
+#         'PASSWORD': 'adel@pt26',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'protec',
-        'USER': 'postgres',
-        'PASSWORD': 'adel@pt26',
-        'HOST': 'localhost',
+        'NAME': 'neondb',
+        'USER': 'neondb_owner',
+        'PASSWORD': 'npg_ed7ICR0TwyBz',
+        'HOST': 'ep-shiny-shape-axs17hvj-pooler.c-4.us-east-2.aws.neon.tech',
         'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+            'channel_binding': 'require',
+        },
     }
 }
+
+
 
 
 # Password validation
