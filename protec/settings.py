@@ -87,16 +87,16 @@ WSGI_APPLICATION = 'protec.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "protec",
-        "USER": "root",
-        "PASSWORD": "adel@pt26",
-        "HOST": "127.0.0.1",
-        "PORT": "3306",
-    }
-}
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": "protec",
+#         "USER": "root",
+#         "PASSWORD": "adel@pt26",
+#         "HOST": "127.0.0.1",
+#         "PORT": "3306",
+#     }
+# }
 
 # DATABASES = {
 #     'default': {
@@ -109,20 +109,20 @@ DATABASES = {
 #     }
 # }
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'neondb',
-#         'USER': 'neondb_owner',
-#         'PASSWORD': 'npg_ed7ICR0TwyBz',
-#         'HOST': 'ep-shiny-shape-axs17hvj-pooler.c-4.us-east-2.aws.neon.tech',
-#         'PORT': '5432',
-#         'OPTIONS': {
-#             'sslmode': 'require',
-#             'channel_binding': 'require',
-#         },
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'neondb',
+        'USER': 'neondb_owner',
+        'PASSWORD': 'npg_ed7ICR0TwyBz',
+        'HOST': 'ep-shiny-shape-axs17hvj-pooler.c-4.us-east-2.aws.neon.tech',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+            'channel_binding': 'require',
+        },
+    }
+}
 
 
 
