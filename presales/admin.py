@@ -27,7 +27,6 @@ admin.site.index_title = "Protec Management"
 # ============================================================
 
 def is_authenticated(user):
-
     return (
         user is not None
         and user.is_authenticated
@@ -284,6 +283,51 @@ class PersonAdmin(UserAdmin):
     def has_delete_permission(self, request, obj=None):
 
         return is_full_admin(request.user)
+
+    # ========================================================
+    # AUTOCOMPLETE FILTER
+    #
+    # IMPORTANT:
+    # Django autocomplete_fields does NOT use ProjectAdmin
+    # get_form() to determine its result list.
+    #
+    # When Project.presales_engineer is being autocompleted,
+    # only active PRESALES users are returned.
+    #
+    # Management / Developer users will NOT appear.
+    # ========================================================
+
+    def get_search_results(
+        self,
+        request,
+        queryset,
+        search_term
+    ):
+
+        queryset, use_distinct = super().get_search_results(
+            request,
+            queryset,
+            search_term
+        )
+
+        # Detect Project -> presales_engineer autocomplete
+        is_project_presales_autocomplete = (
+            request.path.endswith(
+                "/autocomplete/"
+            )
+            and request.GET.get(
+                "field_name"
+            ) == "presales_engineer"
+        )
+
+        if is_project_presales_autocomplete:
+
+            queryset = queryset.filter(
+                role=Person.Role.PRESALES,
+                is_active=True
+            )
+
+        return queryset, use_distinct
 
 
 # ============================================================
@@ -815,11 +859,11 @@ class ProjectAdmin(admin.ModelAdmin):
         "-updated_at",
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # PRESALES ENGINEER DROPDOWN
     #
     # Only active PRESALES users appear.
-    # --------------------------------------------------------
+    # ========================================================
 
     def get_form(self, request, obj=None, **kwargs):
 
@@ -844,9 +888,9 @@ class ProjectAdmin(admin.ModelAdmin):
 
         return form
 
-    # --------------------------------------------------------
+    # ========================================================
     # MODULE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_module_permission(self, request):
 
@@ -858,9 +902,9 @@ class ProjectAdmin(admin.ModelAdmin):
             or is_presales(user)
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # QUERYSET
-    # --------------------------------------------------------
+    # ========================================================
 
     def get_queryset(self, request):
 
@@ -881,9 +925,9 @@ class ProjectAdmin(admin.ModelAdmin):
 
         return qs.none()
 
-    # --------------------------------------------------------
+    # ========================================================
     # VIEW
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_view_permission(self, request, obj=None):
 
@@ -907,11 +951,11 @@ class ProjectAdmin(admin.ModelAdmin):
 
         return False
 
-    # --------------------------------------------------------
+    # ========================================================
     # ADD
     #
     # Only Full Admin can create projects.
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_add_permission(self, request):
 
@@ -919,9 +963,9 @@ class ProjectAdmin(admin.ModelAdmin):
             request.user
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # CHANGE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_change_permission(self, request, obj=None):
 
@@ -945,9 +989,9 @@ class ProjectAdmin(admin.ModelAdmin):
 
         return False
 
-    # --------------------------------------------------------
+    # ========================================================
     # DELETE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_delete_permission(self, request, obj=None):
 
@@ -1242,9 +1286,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         "system",
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # QUERYSET
-    # --------------------------------------------------------
+    # ========================================================
 
     def get_queryset(self, request):
 
@@ -1266,9 +1310,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
 
         return qs.none()
 
-    # --------------------------------------------------------
+    # ========================================================
     # MODULE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_module_permission(self, request):
 
@@ -1278,9 +1322,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
             or is_presales(request.user)
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # VIEW
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_view_permission(self, request, obj=None):
 
@@ -1304,9 +1348,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
 
         return False
 
-    # --------------------------------------------------------
+    # ========================================================
     # ADD
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_add_permission(self, request):
 
@@ -1315,9 +1359,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
             or is_presales(request.user)
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # CHANGE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_change_permission(self, request, obj=None):
 
@@ -1337,9 +1381,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
             == user.id
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # DELETE
-    # --------------------------------------------------------
+    # ========================================================
 
     def has_delete_permission(self, request, obj=None):
 
