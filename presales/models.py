@@ -62,12 +62,26 @@ class PersonManager(BaseUserManager):
 
 class Person(AbstractBaseUser, PermissionsMixin):
 
+    # ========================================================
+    # ROLES
+    # ========================================================
+
     class Role(models.TextChoices):
 
-        ADMIN = "ADMIN", "Admin"
-        MEMBER = "MEMBER", "Member"
-        VIEWER = "VIEWER", "Viewer"
-        DEVELOPER = "DEVELOPER", "Developer"
+        PRESALES = (
+            "PRESALES",
+            "Presales Engineer"
+        )
+
+        MANAGEMENT = (
+            "MANAGEMENT",
+            "Management"
+        )
+
+        DEVELOPER = (
+            "DEVELOPER",
+            "Developer"
+        )
 
     email = models.EmailField(
         unique=True,
@@ -87,7 +101,7 @@ class Person(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
-        default=Role.MEMBER
+        default=Role.PRESALES
     )
 
     is_active = models.BooleanField(
@@ -115,15 +129,17 @@ class Person(AbstractBaseUser, PermissionsMixin):
             f"{self.last_name}"
         ).strip()
 
-        return full_name if full_name else self.email
+        return (
+            full_name
+            if full_name
+            else self.email
+        )
 
 
 # ============================================================
 # LIGHT CURRENT SYSTEM
 #
 # MASTER CATALOG
-#
-# Only ADMIN / DEVELOPER can create or modify systems.
 # ============================================================
 
 class LightCurrentSystem(models.Model):
@@ -138,6 +154,7 @@ class LightCurrentSystem(models.Model):
     )
 
     def __str__(self):
+
         return self.name
 
 
@@ -145,13 +162,6 @@ class LightCurrentSystem(models.Model):
 # VENDOR
 #
 # A vendor belongs to ONE Light Current System.
-#
-# Example:
-#
-# FAS
-#   ├── Simplex
-#   ├── Honeywell
-#   └── Eaton
 # ============================================================
 
 class Vendor(models.Model):
@@ -207,13 +217,6 @@ class Vendor(models.Model):
 # DISTRIBUTOR
 #
 # A distributor belongs to ONE vendor.
-#
-# Example:
-#
-# FAS
-#   └── Simplex
-#        ├── Distributor A
-#        └── Distributor B
 # ============================================================
 
 class Distributor(models.Model):
@@ -308,6 +311,10 @@ class Distributor(models.Model):
 
 class Project(models.Model):
 
+    # --------------------------------------------------------
+    # STATUS
+    # --------------------------------------------------------
+
     class Status(models.TextChoices):
 
         TO_BE_ASSIGNED = (
@@ -320,6 +327,22 @@ class Project(models.Model):
             "In Progress"
         )
 
+    # --------------------------------------------------------
+    # PHASE
+    # --------------------------------------------------------
+
+    class Phase(models.TextChoices):
+
+        TENDERING = (
+            "TENDERING",
+            "Tendering"
+        )
+
+        PROCUREMENT = (
+            "PROCUREMENT",
+            "Procurement"
+        )
+
     name = models.CharField(
         max_length=255
     )
@@ -330,6 +353,16 @@ class Project(models.Model):
         default=Status.TO_BE_ASSIGNED
     )
 
+    phase = models.CharField(
+        max_length=20,
+        choices=Phase.choices,
+        default=Phase.TENDERING
+    )
+
+    # --------------------------------------------------------
+    # PRESALES ENGINEER
+    # --------------------------------------------------------
+
     presales_engineer = models.ForeignKey(
         Person,
         on_delete=models.PROTECT,
@@ -339,7 +372,7 @@ class Project(models.Model):
     )
 
     # --------------------------------------------------------
-    # PROJECT COMMENTS
+    # COMMENTS
     # --------------------------------------------------------
 
     comments = models.TextField(
@@ -355,22 +388,69 @@ class Project(models.Model):
     )
 
     def __str__(self):
+
         return self.name
 
     @property
     def is_assigned(self):
+
         return self.presales_engineer is not None
 
 
 # ============================================================
 # PROJECT SYSTEM
 #
-# Connects:
-#
-# Project <-> LightCurrentSystem
+# A specific Light Current System inside a specific Project.
 # ============================================================
 
 class ProjectSystem(models.Model):
+
+    # --------------------------------------------------------
+    # PROCUREMENT STATUS
+    # --------------------------------------------------------
+
+    class Status(models.TextChoices):
+
+        WAITING_FOR_VL_BOQ_SPECS_DRAWINGS = (
+            "WAITING_FOR_VL_BOQ_SPECS_DRAWINGS",
+            "Waiting for VL/BOQ/SPECS/DRAWINGS"
+        )
+
+        SENT_TO_DISTY = (
+            "SENT_TO_DISTY",
+            "Sent to Disty"
+        )
+
+        QUOTATION_RECEIVED = (
+            "QUOTATION_RECEIVED",
+            "Quotation Received"
+        )
+
+        OFFER_SUBMITTED = (
+            "OFFER_SUBMITTED",
+            "Offer Submitted"
+        )
+
+    # --------------------------------------------------------
+    # CURRENCY
+    # --------------------------------------------------------
+
+    class Currency(models.TextChoices):
+
+        EGP = (
+            "EGP",
+            "EGP"
+        )
+
+        USD = (
+            "USD",
+            "USD"
+        )
+
+        EUR = (
+            "EUR",
+            "EUR"
+        )
 
     project = models.ForeignKey(
         Project,
@@ -382,6 +462,26 @@ class ProjectSystem(models.Model):
         LightCurrentSystem,
         on_delete=models.PROTECT,
         related_name="project_systems"
+    )
+
+    status = models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.WAITING_FOR_VL_BOQ_SPECS_DRAWINGS
+    )
+
+    offer_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    offer_currency = models.CharField(
+        max_length=3,
+        choices=Currency.choices,
+        null=True,
+        blank=True
     )
 
     class Meta:
@@ -411,18 +511,7 @@ class ProjectSystem(models.Model):
 # ============================================================
 # PROJECT VENDOR
 #
-# This represents a vendor actually selected for a system
-# inside a specific project.
-#
-# Example:
-#
-# Project: Hospital XYZ
-#
-# FAS
-#   ├── Simplex
-#   └── Honeywell
-#
-# These vendors come from the global Vendor catalog.
+# Vendor selected for a specific system in a project.
 # ============================================================
 
 class ProjectVendor(models.Model):
@@ -466,15 +555,7 @@ class ProjectVendor(models.Model):
 # ============================================================
 # PROJECT DISTRIBUTOR
 #
-# Represents a distributor selected for a vendor in a project.
-#
-# Example:
-#
-# Project
-#   FAS
-#     Simplex
-#       Distributor A
-#       Distributor B
+# Distributor selected for a vendor in a project.
 # ============================================================
 
 class ProjectDistributor(models.Model):

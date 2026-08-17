@@ -34,46 +34,95 @@ def is_authenticated(user):
     )
 
 
+# ============================================================
+# FULL ADMIN
+#
+# Sherif + Abanob
+#
+# Also allows Django superusers.
+# ============================================================
+
 def is_full_admin(user):
 
     if not is_authenticated(user):
         return False
 
-    return user.is_superuser
+    if user.is_superuser:
+        return True
 
-
-def is_viewer(user):
-
-    if not is_authenticated(user):
-        return False
-
-    return user.role == Person.Role.VIEWER
-
-
-def is_menna(user):
-
-    if not is_authenticated(user):
-        return False
-
-    return user.email.lower() == (
-        "menna.abdelwahab@protec-gp.com"
+    return user.email.lower() in (
+        "sherif.gad@protec-gp.com",
+        "abanob.boschra@protec-gp.com",
     )
 
 
-def is_member(user):
+# ============================================================
+# MANAGEMENT
+# ============================================================
+
+def is_management(user):
 
     if not is_authenticated(user):
         return False
 
-    return user.role == Person.Role.MEMBER
+    return user.role == Person.Role.MANAGEMENT
 
+
+# ============================================================
+# DEVELOPER
+# ============================================================
+
+def is_developer(user):
+
+    if not is_authenticated(user):
+        return False
+
+    return user.role == Person.Role.DEVELOPER
+
+
+# ============================================================
+# PRESALES ENGINEER
+# ============================================================
+
+def is_presales(user):
+
+    if not is_authenticated(user):
+        return False
+
+    return user.role == Person.Role.PRESALES
+
+
+# ============================================================
+# CAN VIEW EVERYTHING
+# ============================================================
+
+def can_view_everything(user):
+
+    return (
+        is_full_admin(user)
+        or is_management(user)
+    )
+
+
+# ============================================================
+# CAN MANAGE PROJECT
+#
+# Full admins:
+#     Any project
+#
+# Presales:
+#     Only their own project
+#
+# Management:
+#     View only
+# ============================================================
 
 def can_manage_project(user, project):
 
     if is_full_admin(user):
         return True
 
-    if is_viewer(user):
+    if not is_presales(user):
         return False
 
     if project is None:
@@ -86,6 +135,21 @@ def can_manage_project(user, project):
 
 
 # ============================================================
+# CAN MANAGE VENDOR / DISTRIBUTOR CATALOG
+#
+# Presales + Developer + Full Admin
+# ============================================================
+
+def can_manage_vendor_catalog(user):
+
+    return (
+        is_full_admin(user)
+        or is_presales(user)
+        or is_developer(user)
+    )
+
+
+# ============================================================
 # PERSON
 # ============================================================
 
@@ -94,7 +158,9 @@ class PersonAdmin(UserAdmin):
 
     model = Person
 
-    ordering = ("email",)
+    ordering = (
+        "email",
+    )
 
     list_display = (
         "email",
@@ -173,7 +239,9 @@ class PersonAdmin(UserAdmin):
         (
             None,
             {
-                "classes": ("wide",),
+                "classes": (
+                    "wide",
+                ),
                 "fields": (
                     "email",
                     "password1",
@@ -189,25 +257,43 @@ class PersonAdmin(UserAdmin):
     )
 
     def has_module_permission(self, request):
-        return is_full_admin(request.user)
+
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+        )
 
     def has_view_permission(self, request, obj=None):
-        return is_full_admin(request.user)
+
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+        )
 
     def has_add_permission(self, request):
-        return is_full_admin(request.user)
+
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+        )
 
     def has_change_permission(self, request, obj=None):
+
         return is_full_admin(request.user)
 
     def has_delete_permission(self, request, obj=None):
+
         return is_full_admin(request.user)
 
 
 # ============================================================
 # LIGHT CURRENT SYSTEM
 #
-# ONLY ADMIN / DEVELOPER
+# Full Admin:
+#     View / Add / Edit / Delete
+#
+# Management + Presales:
+#     View only
 # ============================================================
 
 @admin.register(LightCurrentSystem)
@@ -228,60 +314,40 @@ class LightCurrentSystemAdmin(admin.ModelAdmin):
     )
 
     def has_module_permission(self, request):
-        """
-        Everyone who can access the admin dashboard
-        can see the Light Current Systems section.
-        """
+
         user = request.user
 
         return (
             is_full_admin(user)
-            or is_viewer(user)
-            or is_menna(user)
-            or is_member(user)
+            or is_management(user)
+            or is_presales(user)
         )
 
     def has_view_permission(self, request, obj=None):
-        """
-        Everyone can view Light Current Systems.
-        """
+
         user = request.user
 
         return (
             is_full_admin(user)
-            or is_viewer(user)
-            or is_menna(user)
-            or is_member(user)
+            or is_management(user)
+            or is_presales(user)
         )
 
     def has_add_permission(self, request):
-        """
-        Only Abanob / Sherif can create systems.
-        """
+
         return is_full_admin(request.user)
 
     def has_change_permission(self, request, obj=None):
-        """
-        Only Abanob / Sherif can modify systems.
-        """
+
         return is_full_admin(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        """
-        Only Abanob / Sherif can delete systems.
-        """
+
         return is_full_admin(request.user)
 
 
 # ============================================================
 # DISTRIBUTOR INLINE
-#
-# Inside Vendor:
-#
-# Vendor
-#   ├── Distributor 1
-#   ├── Distributor 2
-#   └── Distributor 3
 # ============================================================
 
 class DistributorInline(admin.TabularInline):
@@ -301,13 +367,33 @@ class DistributorInline(admin.TabularInline):
         "notes",
     )
 
+    def has_add_permission(self, request, obj=None):
+
+        return can_manage_vendor_catalog(
+            request.user
+        )
+
+    def has_change_permission(self, request, obj=None):
+
+        return can_manage_vendor_catalog(
+            request.user
+        )
+
+    def has_delete_permission(self, request, obj=None):
+
+        return can_manage_vendor_catalog(
+            request.user
+        )
+
 
 # ============================================================
 # VENDOR
 #
-# Anyone can view/add/change/delete.
+# Full Admin + Presales + Developer:
+#     View / Add / Edit / Delete
 #
-# Vendor belongs to one Light Current System.
+# Management:
+#     View only
 # ============================================================
 
 @admin.register(Vendor)
@@ -349,29 +435,47 @@ class VendorAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
 
-        return is_authenticated(request.user)
+        user = request.user
+
+        return (
+            is_full_admin(user)
+            or is_management(user)
+            or is_presales(user)
+            or is_developer(user)
+        )
 
     def has_view_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        user = request.user
+
+        return (
+            is_full_admin(user)
+            or is_management(user)
+            or is_presales(user)
+            or is_developer(user)
+        )
 
     def has_add_permission(self, request):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
     def has_change_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
     def has_delete_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
 
 # ============================================================
 # DISTRIBUTOR
-#
-# Anyone can view/add/change/delete.
 # ============================================================
 
 @admin.register(Distributor)
@@ -420,23 +524,43 @@ class DistributorAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
 
-        return is_authenticated(request.user)
+        user = request.user
+
+        return (
+            is_full_admin(user)
+            or is_management(user)
+            or is_presales(user)
+            or is_developer(user)
+        )
 
     def has_view_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        user = request.user
+
+        return (
+            is_full_admin(user)
+            or is_management(user)
+            or is_presales(user)
+            or is_developer(user)
+        )
 
     def has_add_permission(self, request):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
     def has_change_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
     def has_delete_permission(self, request, obj=None):
 
-        return is_authenticated(request.user)
+        return can_manage_vendor_catalog(
+            request.user
+        )
 
 
 # ============================================================
@@ -480,7 +604,7 @@ class ProjectDistributorInline(admin.TabularInline):
 
         return can_manage_project(
             request.user,
-            obj.project_vendor.project_system.project
+            obj.project_system.project
         )
 
     def has_delete_permission(self, request, obj=None):
@@ -490,7 +614,7 @@ class ProjectDistributorInline(admin.TabularInline):
 
         return can_manage_project(
             request.user,
-            obj.project_vendor.project_system.project
+            obj.project_system.project
         )
 
 
@@ -525,7 +649,7 @@ class ProjectVendorInline(admin.TabularInline):
 
         return can_manage_project(
             request.user,
-            obj.project
+            obj
         )
 
     def has_change_permission(self, request, obj=None):
@@ -548,13 +672,16 @@ class ProjectVendorInline(admin.TabularInline):
             obj.project_system.project
         )
 
-    inlines = (
-        ProjectDistributorInline,
-    )
-
 
 # ============================================================
 # PROJECT SYSTEM INLINE
+#
+# Shows:
+#
+# System
+# Status
+# Offer Amount
+# Currency
 # ============================================================
 
 class ProjectSystemInline(admin.TabularInline):
@@ -565,6 +692,9 @@ class ProjectSystemInline(admin.TabularInline):
 
     fields = (
         "system",
+        "status",
+        "offer_amount",
+        "offer_currency",
     )
 
     autocomplete_fields = (
@@ -618,12 +748,14 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "presales_engineer",
+        "phase",
         "status",
         "created_at",
         "updated_at",
     )
 
     list_filter = (
+        "phase",
         "status",
         "presales_engineer",
     )
@@ -650,6 +782,7 @@ class ProjectAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "name",
+                    "phase",
                     "status",
                     "presales_engineer",
                 )
@@ -683,6 +816,35 @@ class ProjectAdmin(admin.ModelAdmin):
     )
 
     # --------------------------------------------------------
+    # PRESALES ENGINEER DROPDOWN
+    #
+    # Only active PRESALES users appear.
+    # --------------------------------------------------------
+
+    def get_form(self, request, obj=None, **kwargs):
+
+        form = super().get_form(
+            request,
+            obj,
+            **kwargs
+        )
+
+        if "presales_engineer" in form.base_fields:
+
+            form.base_fields[
+                "presales_engineer"
+            ].queryset = Person.objects.filter(
+                role=Person.Role.PRESALES,
+                is_active=True
+            ).order_by(
+                "first_name",
+                "last_name",
+                "email"
+            )
+
+        return form
+
+    # --------------------------------------------------------
     # MODULE
     # --------------------------------------------------------
 
@@ -692,9 +854,8 @@ class ProjectAdmin(admin.ModelAdmin):
 
         return (
             is_full_admin(user)
-            or is_viewer(user)
-            or is_menna(user)
-            or is_member(user)
+            or is_management(user)
+            or is_presales(user)
         )
 
     # --------------------------------------------------------
@@ -710,14 +871,10 @@ class ProjectAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return qs
 
-        if is_viewer(user):
+        if is_management(user):
             return qs
 
-        if is_menna(user):
-            return qs
-
-        if is_member(user):
-
+        if is_presales(user):
             return qs.filter(
                 presales_engineer=user
             )
@@ -735,13 +892,10 @@ class ProjectAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if is_management(user):
             return True
 
-        if is_menna(user):
-            return True
-
-        if is_member(user):
+        if is_presales(user):
 
             if obj is None:
                 return True
@@ -755,11 +909,15 @@ class ProjectAdmin(admin.ModelAdmin):
 
     # --------------------------------------------------------
     # ADD
+    #
+    # Only Full Admin can create projects.
     # --------------------------------------------------------
 
     def has_add_permission(self, request):
 
-        return is_full_admin(request.user)
+        return is_full_admin(
+            request.user
+        )
 
     # --------------------------------------------------------
     # CHANGE
@@ -772,16 +930,20 @@ class ProjectAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if is_management(user):
             return False
 
-        if obj is None:
-            return False
+        if is_presales(user):
 
-        return (
-            obj.presales_engineer_id
-            == user.id
-        )
+            if obj is None:
+                return False
+
+            return (
+                obj.presales_engineer_id
+                == user.id
+            )
+
+        return False
 
     # --------------------------------------------------------
     # DELETE
@@ -789,7 +951,9 @@ class ProjectAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
 
-        return is_full_admin(request.user)
+        return is_full_admin(
+            request.user
+        )
 
 
 # ============================================================
@@ -822,7 +986,11 @@ class ProjectVendorAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
 
-        return is_authenticated(request.user)
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+            or is_presales(request.user)
+        )
 
     def get_queryset(self, request):
 
@@ -833,13 +1001,10 @@ class ProjectVendorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return qs
 
-        if is_viewer(user):
+        if is_management(user):
             return qs
 
-        if is_menna(user):
-            return qs
-
-        if is_member(user):
+        if is_presales(user):
 
             return qs.filter(
                 project_system__project__presales_engineer=user
@@ -854,13 +1019,10 @@ class ProjectVendorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if is_management(user):
             return True
 
-        if is_menna(user):
-            return True
-
-        if is_member(user):
+        if is_presales(user):
 
             if obj is None:
                 return True
@@ -876,8 +1038,7 @@ class ProjectVendorAdmin(admin.ModelAdmin):
 
         return (
             is_full_admin(request.user)
-            or is_menna(request.user)
-            or is_member(request.user)
+            or is_presales(request.user)
         )
 
     def has_change_permission(self, request, obj=None):
@@ -887,7 +1048,7 @@ class ProjectVendorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
@@ -905,7 +1066,7 @@ class ProjectVendorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
@@ -947,7 +1108,11 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
 
-        return is_authenticated(request.user)
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+            or is_presales(request.user)
+        )
 
     def get_queryset(self, request):
 
@@ -958,13 +1123,10 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return qs
 
-        if is_viewer(user):
+        if is_management(user):
             return qs
 
-        if is_menna(user):
-            return qs
-
-        if is_member(user):
+        if is_presales(user):
 
             return qs.filter(
                 project_vendor__project_system__project__presales_engineer=user
@@ -979,19 +1141,19 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if is_management(user):
             return True
 
-        if is_menna(user):
-            return True
-
-        if is_member(user):
+        if is_presales(user):
 
             if obj is None:
                 return True
 
             return (
-                obj.project_vendor.project_system.project.presales_engineer_id
+                obj.project_vendor
+                .project_system
+                .project
+                .presales_engineer_id
                 == user.id
             )
 
@@ -1001,8 +1163,7 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
 
         return (
             is_full_admin(request.user)
-            or is_menna(request.user)
-            or is_member(request.user)
+            or is_presales(request.user)
         )
 
     def has_change_permission(self, request, obj=None):
@@ -1012,14 +1173,17 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
             return False
 
         return (
-            obj.project_vendor.project_system.project.presales_engineer_id
+            obj.project_vendor
+            .project_system
+            .project
+            .presales_engineer_id
             == user.id
         )
 
@@ -1030,14 +1194,17 @@ class ProjectDistributorAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
             return False
 
         return (
-            obj.project_vendor.project_system.project.presales_engineer_id
+            obj.project_vendor
+            .project_system
+            .project
+            .presales_engineer_id
             == user.id
         )
 
@@ -1054,9 +1221,14 @@ class ProjectSystemAdmin(admin.ModelAdmin):
     list_display = (
         "project",
         "system",
+        "status",
+        "offer_amount",
+        "offer_currency",
     )
 
     list_filter = (
+        "status",
+        "offer_currency",
         "system",
     )
 
@@ -1070,16 +1242,9 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         "system",
     )
 
-    def has_module_permission(self, request):
-
-        user = request.user
-
-        return (
-            is_full_admin(user)
-            or is_viewer(user)
-            or is_menna(user)
-            or is_member(user)
-        )
+    # --------------------------------------------------------
+    # QUERYSET
+    # --------------------------------------------------------
 
     def get_queryset(self, request):
 
@@ -1090,19 +1255,32 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return qs
 
-        if is_viewer(user):
+        if is_management(user):
             return qs
 
-        if is_menna(user):
-            return qs
-
-        if is_member(user):
+        if is_presales(user):
 
             return qs.filter(
                 project__presales_engineer=user
             )
 
         return qs.none()
+
+    # --------------------------------------------------------
+    # MODULE
+    # --------------------------------------------------------
+
+    def has_module_permission(self, request):
+
+        return (
+            is_full_admin(request.user)
+            or is_management(request.user)
+            or is_presales(request.user)
+        )
+
+    # --------------------------------------------------------
+    # VIEW
+    # --------------------------------------------------------
 
     def has_view_permission(self, request, obj=None):
 
@@ -1111,13 +1289,10 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if is_management(user):
             return True
 
-        if is_menna(user):
-            return True
-
-        if is_member(user):
+        if is_presales(user):
 
             if obj is None:
                 return True
@@ -1129,13 +1304,20 @@ class ProjectSystemAdmin(admin.ModelAdmin):
 
         return False
 
+    # --------------------------------------------------------
+    # ADD
+    # --------------------------------------------------------
+
     def has_add_permission(self, request):
 
         return (
             is_full_admin(request.user)
-            or is_menna(request.user)
-            or is_member(request.user)
+            or is_presales(request.user)
         )
+
+    # --------------------------------------------------------
+    # CHANGE
+    # --------------------------------------------------------
 
     def has_change_permission(self, request, obj=None):
 
@@ -1144,7 +1326,7 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
@@ -1155,6 +1337,10 @@ class ProjectSystemAdmin(admin.ModelAdmin):
             == user.id
         )
 
+    # --------------------------------------------------------
+    # DELETE
+    # --------------------------------------------------------
+
     def has_delete_permission(self, request, obj=None):
 
         user = request.user
@@ -1162,7 +1348,7 @@ class ProjectSystemAdmin(admin.ModelAdmin):
         if is_full_admin(user):
             return True
 
-        if is_viewer(user):
+        if not is_presales(user):
             return False
 
         if obj is None:
